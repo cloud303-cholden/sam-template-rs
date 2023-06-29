@@ -11,7 +11,7 @@ Parameters:
   pApplicationName:
     Type: String
     Description: Name of application
-    Default: {{ cookiecutter.project_name }}
+    Default: {{ cookiecutter.project_slug }}
 
   pEnvironmentTag:
     Type: String
@@ -54,11 +54,8 @@ Resources:
       CodeUri: .
       Handler: bootstrap  # Do not change
       Runtime: provided.al2
-      {%- if cookiecutter.architectures.value != []%}
-      Architectures:
-      {%- for arch in cookiecutter.architectures.value %}
-        - {{arch}}
-      {%- endfor %}
+      {%- if cookiecutter.architecture %}
+      Architecture: {{ cookiecutter.architecture }}
       {%- endif %}
 
   LambdaRole:
@@ -173,10 +170,10 @@ Resources:
 Outputs:
   LambdaFunction:
     Description: Lambda Function ARN
-    Value: !GetAtt HelloWorldFunction.Arn
+    Value: !GetAtt LambdaFunction.Arn
   LambdaFunctionIamRole:
     Description: Lambda Function IAM Role
     Value: !GetAtt LambdaFunctionRole.Arn
   Version:
     Description: Template Version
-    Value: {{ cookiecutter.project_name }}-0.1.0
+    Value: {{ cookiecutter.project_slug }}-0.1.0
