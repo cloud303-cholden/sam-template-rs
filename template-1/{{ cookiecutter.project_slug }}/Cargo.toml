@@ -1,0 +1,29 @@
+[package]
+name = "{{ cookiecutter.project_slug }}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aws-config = "0.55.3"
+lambda_runtime = "0.8.0"
+serde = "1.0.163"
+serde_json = "1.0.96"
+
+[dependencies.aws_lambda_events]
+version = "0.7.3"
+default-features = false
+features = []
+
+[dependencies.tokio]
+version = "1"
+features = ["macros"]
+
+[dependencies.tracing]
+version = "0.1"
+features = ["log"]
+
+[dependencies.tracing-subscriber]
+version = "0.3"
+default-features = false
+features = ["fmt", "ansi", "env-filter"]
+

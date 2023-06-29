@@ -1,0 +1,182 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: {{ cookiecutter.project_name }}
+
+Globals:
+  Function:
+    Timeout: 15
+    MemorySize: 128
+
+Parameters:
+  pApplicationName:
+    Type: String
+    Description: Name of application
+    Default: {{ cookiecutter.project_name }}
+
+  pEnvironmentTag:
+    Type: String
+    Description: Environment for default resource tagging
+    Default: prod
+    AllowedValues:
+      - prod
+      - staging
+      - sandbox
+      - test
+      - dev
+      - qa
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterLabels:
+      pApplicationName:
+        default: Application Name
+      pEnvironmentTag:
+        default: Environment Tag
+
+    ParameterGroups:
+      - Label:
+          default: Application
+        Parameters:
+          - pApplicationName
+      - Label:
+          default: Tagging
+        Parameters:
+          - pEnvironmentTag
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+    Properties:
+      FunctionName: !Sub ${pApplicationName}-function-${pEnvironmentTag}
+      Role: !GetAtt LambdaRole.Arn
+      CodeUri: .
+      Handler: bootstrap  # Do not change
+      Runtime: provided.al2
+      {%- if cookiecutter.architectures.value != []%}
+      Architectures:
+      {%- for arch in cookiecutter.architectures.value %}
+        - {{arch}}
+      {%- endfor %}
+      {%- endif %}
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: IAM role for ${pEnvironmentTag} ${pApplicationName} Lambda function invocation.
+      RoleName: !Sub ${pApplicationName}-role-${pEnvironmentTag}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ${pApplicationName}-policy-${pEnvironmentTag}
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CreateLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${pApplicationName}-function-${pEnvironmentTag}:*
+
+  ApplicationDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${pApplicationName}-dashboard-${pEnvironmentTag}
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "height": 6,
+              "width": 8,
+              "y": 24,
+              "x": 16,
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${pApplicationName}-function-${pEnvironmentTag}", { "label": "Invocations" } ]
+                ],
+                "period": 60,
+                "region": "${AWS::Region}",
+                "title": "Invocations",
+                "view": "timeSeries",
+                "stacked": false,
+                "stat": "Sum"
+              }
+            },
+            {
+              "height": 6,
+              "width": 8,
+              "y": 30,
+              "x": 16,
+              "type": "metric",
+              "properties": {
+                "period": 60,
+                "metrics": [
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${pApplicationName}-function-${pEnvironmentTag}", { "stat": "Minimum" } ],
+                  [ "...", { "stat": "Average" } ],
+                  [ "...", { "stat": "Maximum" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "Duration"
+              }
+            },
+            {
+              "height": 6,
+              "width": 8,
+              "y": 42,
+              "x": 16,
+              "type": "metric",
+              "properties": {
+                "period": 60,
+                "metrics": [
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${pApplicationName}-function-${pEnvironmentTag}", { "id": "errors", "stat": "Sum", "color": "#d13212" } ],
+                  [ ".", "Invocations", ".", ".", { "id": "invocations", "stat": "Sum", "visible": false } ],
+                  [ { "expression": "100 - 100 * errors / MAX([errors, invocations])", "label": "Success rate (%)", "id": "availability", "yAxis": "right" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "Errors/Success",
+                "yAxis": {
+                  "right": {
+                    "max": 100
+                  }
+                }
+              }
+            },
+            {
+              "height": 6,
+              "width": 8,
+              "y": 36,
+              "x": 16,
+              "type": "metric",
+              "properties": {
+                "period": 60,
+                "metrics": [
+                  [ "AWS/Lambda", "ConcurrentExecutions", "FunctionName", "${pApplicationName}-function-${pEnvironmentTag}", { "stat": "Maximum" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "Concurrency"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  LambdaFunction:
+    Description: Lambda Function ARN
+    Value: !GetAtt HelloWorldFunction.Arn
+  LambdaFunctionIamRole:
+    Description: Lambda Function IAM Role
+    Value: !GetAtt LambdaFunctionRole.Arn
+  Version:
+    Description: Template Version
+    Value: {{ cookiecutter.project_name }}-0.1.0
