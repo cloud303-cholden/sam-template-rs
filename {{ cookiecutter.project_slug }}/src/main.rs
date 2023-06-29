@@ -1,7 +1,6 @@
-use lambda_http::{
-    Body,
-    Response,
-}
+// Remove this.
+#![allow(unused_imports)]
+
 use lambda_runtime::{
     run,
     service_fn,
@@ -14,23 +13,33 @@ use serde::{
 };
 use tracing::info;
 
+// Prefer to replace this struct with a concrete LambdaEvent.
+#[derive(Deserialize)]
+struct Request {}
+
+#[derive(Serialize)]
+struct Response {
+    status_code: i32,
+    body: String,
+}
+
 async fn function_handler(
-    _event: LambdaEvent<_>,
-) -> Result<Response<Body>, Box<dyn std::error::Error>> {
+    _event: LambdaEvent<Request>,
+) -> Result<Response, Box<dyn std::error::Error>> {
     // Load AWS config from environment.
-    let config = ::aws_config::load_from_env().await;
+    let _config = ::aws_config::load_from_env().await;
 
     // Default to an HTTP response.
-    Ok(Response::builder()
-        .status(200)
-        .body("ok".into())?
-    )
+    Ok(Response {
+        status_code: 200,
+        body: "ok".to_string(),
+    })
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     // Filter out config cache warning and hyper debug insanity.
-    let env_filter = env::var("ENV_FILTER")
+    let env_filter = std::env::var("ENV_FILTER")
         .unwrap_or("aws_config=warn,hyper=info".to_string());
 
     tracing_subscriber::fmt()
